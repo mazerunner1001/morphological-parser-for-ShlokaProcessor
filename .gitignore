@@ -133,3 +133,6 @@ dmypy.json
 
 # test results
 /result_submission/*
+
+# history files
+.history
