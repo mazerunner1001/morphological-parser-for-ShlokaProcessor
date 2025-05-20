@@ -4,7 +4,7 @@
 ## Word Segmentation
 
 - [S. Krishnan and A. Kulkarni, 2019] [Sanskrit Segmentation Revisited](https://aclanthology.org/2019.icon-1.12.pdf)
-  - proposes modifications for the Heritage Segmenter (FST that produces all possible segmentations): 
+  - proposes modifications for the Heritage Segmenter (FST that produces all possible segmentations):  
   End goal is segmentation, ignore phases except for those that are related to compounds, calculates a confidence value C for each segmentation solution as the POP (product-of-products) of the word and transition probabilities. 
   - Section 2 gives a brief review of exsisting approaches to the segmentation problem, it serves as an entrypoint to other papers
     - [Huet, 2003] Heritage Segmenter - FST, one for external (sentence) sandhi and one for internal (word) sandhi
