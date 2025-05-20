@@ -1,47 +1,81 @@
 import torch
 import json
 import time
-
+import argparse
 from functools import partial
 from torch.utils.data import DataLoader
+from pathlib import Path
+import os
+import sys
 
-from helpers import load_data, load_sankrit_dictionary, save_task2_predictions
-from vocabulary import make_vocabulary, PAD_TOKEN
-from dataset import index_dataset, collate_fn, eval_collate_fn
-from model import build_model, build_optimizer, save_model
-from training import train
-from evaluate import (
+# Optional: Import wandb for logging (only if enabled)
+try:
+    import wandb
+    WANDB_AVAILABLE = True
+except ImportError:
+    WANDB_AVAILABLE = False
+
+# Dynamically set the base directory and add it to sys.path
+BASE_DIR = Path(__file__).resolve().parents[2]
+sys.path.append(str(BASE_DIR))
+sys.path.append(str(BASE_DIR  / "Task2" / "Seq2Seq_Decoding" ))
+
+from Task2.RuleClassification.logger import logger
+from Task2.Seq2Seq_Decoding.helpers import load_data, load_sankrit_dictionary, save_task2_predictions
+from Task2.Seq2Seq_Decoding.vocabulary import make_vocabulary, PAD_TOKEN
+from Task2.Seq2Seq_Decoding.dataset import index_dataset, collate_fn, eval_collate_fn
+from Task2.Seq2Seq_Decoding.model import build_model, build_optimizer, save_model
+from Task2.Seq2Seq_Decoding.training import train
+from Task2.Seq2Seq_Decoding.evaluate import (
     evaluate_model,
     print_metrics,
     format_predictions,
     convert_eval_if_translit,
 )
-from scoring import evaluate
-from extract_rules import get_token_rule_mapping, get_rules
+from Task2.Seq2Seq_Decoding.scoring import evaluate
+from Task2.Seq2Seq_Decoding.extract_rules import get_token_rule_mapping, get_rules
 
 # Ignore warning (who cares?)
 import warnings
 
 warnings.filterwarnings("ignore")
 
-# Parse config file
-import argparse
-
-parser = argparse.ArgumentParser()
-parser.add_argument("--cfg", type=str, default="config.cfg")
-config_file = parser.parse_args().cfg
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train and evaluate rule classification model")
+    parser.add_argument("--config", type=str, default="config.cfg", help="Path to config file")
+    parser.add_argument("--use_wandb", action="store_true", help="Enable Weights & Biases logging")
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    with open(config_file) as config:
-        config = json.load(config)
+    args = parse_args()
 
-    translit = config["translit"]
+    # Load config file
+    config_path = os.path.join(os.path.dirname(__file__), args.config)
+    with open(config_path, "r") as cfg:
+        config = json.load(cfg)
 
-    # Load data
-    print("\nLoad data")
+    translit = config.get("translit", False)
+    test = config.get("test", False)
+    tune = config.get("tune", False)
+
+    # Set project root and update config paths
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+    config["cwd"] = project_root
+    config["train_path"] = os.path.join(project_root, "sanskrit", "wsmp_train.json")
+    config["eval_path"] = os.path.join(project_root, "sanskrit", "corrected_wsmp_dev.json")
+    config["test_path"] = os.path.join(project_root, "sanskrit")
+
+    # Initialize Weights & Biases if enabled
+    if args.use_wandb and WANDB_AVAILABLE:
+        wandb.init(project="rule-classifier", config=config, name=config.get("name"))
+
+    # Load training and evaluation data
+    logger.info("Load data")
     train_data = load_data(config["train_path"], translit)
     eval_data = load_data(config["eval_path"], translit)
+    logger.info(f"Loaded {len(train_data)} train sents")
+    logger.info(f"Loaded {len(eval_data)} test sents")
 
     # Exctract rules
     print("\nExtracting rules")

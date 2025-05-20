@@ -135,4 +135,7 @@ dmypy.json
 /result_submission/*
 
 # history files
-.history
+.history/
+
+# saved models
+/saved_models
